@@ -24,42 +24,41 @@ CREATE VIEW DepartmentView AS
     LEFT JOIN __aggregate_1 r ON l.id=r.department;
 """
 
-from engine import Aggregate, LeftJoin, Log, Table
-from engine.aggregate import Sum
-from fields import IntegerField, TextField
+import gevent
+
+from engine import Table
+#from engine.aggregate import Sum
 
 
-Department__log = Log('Department__log', {
-    'id': IntegerField(),
-    'name': TextField(),
-    'manager': IntegerField(),
+Department = Table('Department', {
+    'id': int,
+    'name': str,
+    'manager': int,
 })
 
-Department = Table('Department', Department__log)
-
-Employee_log = Log('Employee_log', {
-    'id': IntegerField(),
-    'name': TextField(),
-    'department': IntegerField(),
-    'salary': IntegerField(),
+Employee = Table('Employee', {
+    'id': int,
+    'name': str,
+    'department': int,
+    'salary': int,
 })
 
-Employee = Table('Employee', Employee_log)
+# __join_1 = LeftJoin('__join_1', Department, 'manager', Employee, 'id', {
+#     'id': 'id',
+#     'name': 'name'}, {
+#     'manager_name': 'name',
+# })
+#
+# __aggregate_1 = Aggregate('__aggregate_1', Employee, 'department', {
+#     'department': 'department',
+#     'total_salary': Sum('salary'),
+# })
+#
+# DepartmentView = LeftJoin('DepartmentView', __join_1, 'id', __aggregate_1, 'department', {
+#     'id': 'id',
+#     'name': 'name',
+#     'manager_name': 'manager_name'}, {
+#     'total_salary': 'total_salary',
+# })
 
-__join_1 = LeftJoin('__join_1', Department, 'manager', Employee, 'id', {
-    'id': 'id',
-    'name': 'name'}, {
-    'manager_name': 'name',
-})
-
-__aggregate_1 = Aggregate('__aggregate_1', Employee, 'department', {
-    'department': 'department',
-    'total_salary': Sum('salary'),
-})
-
-DepartmentView = LeftJoin('DepartmentView', __join_1, 'id', __aggregate_1, 'department', {
-    'id': 'id',
-    'name': 'name',
-    'manager_name': 'manager_name'}, {
-    'total_salary': 'total_salary',
-})
+gevent.wait()

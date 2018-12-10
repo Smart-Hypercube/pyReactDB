@@ -2,10 +2,10 @@ from gevent.event import Event
 
 
 class MultiVersionSet:
-    def __init__(self):
-        self.versions = []
-        self.data = {}
-        self.events = {}
+    def __init__(self, default=()):
+        self.versions = [0]
+        self.data = {0: frozenset(default)}
+        self.events = {0: Event()}
 
     def __matmul__(self, k):
         if k in self.data:

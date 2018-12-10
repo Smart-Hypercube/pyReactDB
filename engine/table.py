@@ -19,6 +19,7 @@ class TableServer:
 
     @request
     def connect(self, query='SELECT *', protocol=None):
+        print('connect', query, protocol)
         if protocol != self.protocol:
             return {'error': 'unknown protocol'}
         fields = self.engine.fields
@@ -27,7 +28,8 @@ class TableServer:
         return {'fields': fields}
 
     @request
-    def query(self, ts, nonblock=False, data=True):
+    def query(self, ts=0, nonblock=True, data=True):
+        print('query', ts, nonblock, data)
         rows = self.engine.rows
         while True:
             if not nonblock:
@@ -50,35 +52,46 @@ class TableServer:
             response['data'] = d
         return response
 
+    @request
+    def commit(self, ts, add, remove):
+        print('commit', ts, add, remove)
+        rows = set(self.engine.rows.value)
+        for row_data in add:
+            self.engine.row_n += 1
+            row = str(self.engine.row_n)
+            try:
+                self.engine.data[row] = tuple(self.engine.field_classes[field](row_data[i])
+                                              for (i, field) in enumerate(self.engine.fields))
+            except ValueError:
+                return {'error': 'invalid input in: ' + repr(row_data)}
+            rows.add(row)
+        for row in remove:
+            try:
+                rows.remove(row)
+            except KeyError:
+                return {'error': 'invalid row to remove: ' + repr(row)}
+        self.engine.rows[ts] = rows
+        return {}
+
     def true(self, row):
         return True
 
 
 class Table:
-    def __init__(self, name, log):
+    def __init__(self, name, fields):
         self.name = name
-        self.address = str(settings.SOCKET_DIR / name)
 
-        # connect to log and retrieve field names
-        s = socket.socket(socket.AF_UNIX)
-        s.connect(log.address)
-        self.log = JSONRpc(s).get_peer_proxy()
-        self.fields = self.log.connect('SELECT * WHERE effective()', protocol=0)['fields']
+        self.fields = tuple(fields.keys())
+        self.field_classes = fields
         self.rows = MultiVersionSet()
         self.data = {}
-
-        # get updates from log
-        def chase():
-            while True:
-                response = self.log.query(self.rows.key)
-                rows = set(self.rows.value)
-                rows |= set(response['add'])
-                rows -= set(response['remove'])
-                self.rows[response['ts']] = rows
-                self.data.update(response['data'])
-        gevent.spawn(chase)
+        self.row_n = 0  # most recently used row number
 
         # listen for incoming connections
+        address = settings.SOCKET_DIR / name
+        if address.exists():
+            address.unlink()
+        self.address = str(address)
         s = socket.socket(socket.AF_UNIX)
         s.bind(self.address)
         s.listen()
